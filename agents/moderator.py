@@ -65,7 +65,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types as genai_types
 
 # ─────────────────────────────────────────────────────────────
 # Supported languages & their native names
@@ -206,13 +207,13 @@ class Moderator:
     MAX_RETRIES = 2
 
     def __init__(self, api_key: str, verbose: bool = False):
-        genai.configure(api_key=api_key)
+        self._client = genai.Client(api_key=api_key)
         self._verbose = verbose
-        self._reasoning_agent  = _make_model(temperature=0.2)
-        self._question_agent   = _make_model(temperature=0.75)
-        self._story_agent      = _make_model(temperature=0.85)
-        self._qa_agent         = _make_model(temperature=0.05)
-        self._hint_agent       = _make_model(temperature=0.35)
+        self._reasoning_agent  = _make_model(self._client, temperature=0.2)
+        self._question_agent   = _make_model(self._client, temperature=0.75)
+        self._story_agent      = _make_model(self._client, temperature=0.85)
+        self._qa_agent         = _make_model(self._client, temperature=0.05)
+        self._hint_agent       = _make_model(self._client, temperature=0.35)
 
     def run(self, ctx: SessionContext) -> QuestionPacket:
         log: List[str] = []
@@ -670,12 +671,25 @@ Return ONLY valid JSON:
 # Helpers
 # ─────────────────────────────────────────────────────────────
 
-def _make_model(temperature: float = 0.7):
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-    return genai.GenerativeModel(
-        model_name,
-        generation_config=genai.GenerationConfig(temperature=temperature),
-    )
+def _make_model(client: "genai.Client", temperature: float = 0.7):
+    """
+    Adapter over the google-genai SDK exposing a generate_content(prompt)
+    interface so agent call sites stay SDK-agnostic. JSON mode is native.
+    """
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+
+    class _AgentModel:
+        def generate_content(self, prompt: str):
+            return client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
+                    temperature=temperature,
+                    response_mime_type="application/json",
+                ),
+            )
+
+    return _AgentModel()
 
 
 def _call_json(model, prompt: str) -> Dict:

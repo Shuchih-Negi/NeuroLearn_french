@@ -36,6 +36,7 @@ the moderator indicates that semantic variants should be accepted.
 
 from __future__ import annotations
 
+import os
 import re
 import unicodedata
 from typing import Dict, List, Optional, Tuple
@@ -46,14 +47,21 @@ import numpy as np
 _transformers_ok = False
 _sentence_transformer = None
 
-try:
-    from sentence_transformers import SentenceTransformer
-    _sentence_transformer = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-    _transformers_ok = True
-    print("[NLPModel] Sentence transformer loaded.")
-except ImportError:
-    print("[NLPModel] sentence-transformers not installed; using edit-distance fallback.")
-    print("           pip install sentence-transformers  (optional, improves validation)")
+if os.environ.get("NLP_DISABLE_SEMANTIC", "") == "1":
+    print("[NLPModel] Semantic validation disabled via NLP_DISABLE_SEMANTIC.")
+else:
+    try:
+        from sentence_transformers import SentenceTransformer
+        _sentence_transformer = SentenceTransformer(
+            "paraphrase-multilingual-MiniLM-L12-v2")
+        _transformers_ok = True
+        print("[NLPModel] Sentence transformer loaded.")
+    except ImportError:
+        print("[NLPModel] sentence-transformers not installed; using edit-distance fallback.")
+        print("           pip install sentence-transformers  (optional, improves validation)")
+    except Exception as e:  # noqa: BLE001 — offline/broken model must not crash startup
+        print(f"[NLPModel] Sentence transformer unavailable ({e}); "
+              "using edit-distance fallback.")
 
 
 # ─────────────────────────────────────────────────────────────
