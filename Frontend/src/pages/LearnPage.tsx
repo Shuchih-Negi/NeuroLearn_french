@@ -1,25 +1,31 @@
 import { useEffect, useRef, useState } from "react";
-import { generateLangStory } from "../utils/api";
+import { Navigate, useNavigate } from "react-router-dom";
+import { generateLangStory, type LangStory } from "../utils/api";
 import boxImg from "../assets/box.png";
+import { useStore } from "../store/useStore";
 
-export default function LearnPage({ section, character, targetLanguage = "fr", onGoTest, onBack }) {
+export default function LearnPage() {
+  const navigate = useNavigate();
+  const section = useStore((s) => s.section);
+  const character = useStore((s) => s.character);
+
   const [loading, setLoading] = useState(true);
-  const [story, setStory] = useState(null);
+  const [story, setStory] = useState<LangStory | null>(null);
   const [typed, setTyped] = useState("");
   const [doneTyping, setDoneTyping] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const timerRef = useRef(null);
+  const timerRef = useRef<number | null>(null);
 
-  function startTypewriter(text) {
-    if (timerRef.current) clearInterval(timerRef.current);
+  function startTypewriter(text: string) {
+    if (timerRef.current) window.window.clearInterval(timerRef.current!);
     setTyped("");
     setDoneTyping(false);
     let i = 0;
-    timerRef.current = setInterval(() => {
+    timerRef.current = window.setInterval(() => {
       i += 2;
       setTyped(text.slice(0, i));
       if (i >= text.length) {
-        clearInterval(timerRef.current);
+        window.clearInterval(timerRef.current!);
         timerRef.current = null;
         setDoneTyping(true);
       }
@@ -30,9 +36,9 @@ export default function LearnPage({ section, character, targetLanguage = "fr", o
     let cancelled = false;
 
     generateLangStory({
-      character: character.name,
-      topic: section.topic,
-      targetLanguage,
+      character: character?.name || "Luna",
+      topic: section?.topic || "French basics",
+      targetLanguage: "fr",
       difficulty: 1,
       learnerAge: 12,
     })
@@ -45,29 +51,40 @@ export default function LearnPage({ section, character, targetLanguage = "fr", o
       })
       .catch(() => {
         if (!cancelled) {
-          setStory({
-            title: `${character.name}'s French Quest`,
-            story: `${character.name} is ready to teach you ${section.title} in French! Let's dive in.`,
-            key_words: [{ word: "Bonjour", meaning: "Hello", pronunciation: "bon-ZHOOR", example: "Bonjour, comment allez-vous?" }],
-            comprehension_question: `What does ${section.title} cover?`,
-            comprehension_answer: section.topic,
+          const fallback: LangStory = {
+            title: `${character?.name || "Your hero"}'s French Quest`,
+            story: `${character?.name || "Your hero"} is ready to teach you ${section?.title} in French! Let's dive in.`,
+            key_words: [
+              {
+                word: "Bonjour",
+                meaning: "Hello",
+                pronunciation: "bon-ZHOOR",
+                example: "Bonjour, comment allez-vous?",
+              },
+            ],
+            comprehension_question: `What does ${section?.title} cover?`,
+            comprehension_answer: section?.topic,
             language_tip: "Practice saying each word out loud!",
-          });
+          };
+          setStory(fallback);
           setLoading(false);
           setDoneTyping(true);
-          setTyped(`${character.name} is ready to teach you ${section.title} in French! Let's dive in.`);
+          setTyped(fallback.story);
         }
       });
 
     return () => {
       cancelled = true;
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) window.window.clearInterval(timerRef.current!);
       speechSynthesis.cancel();
     };
-  }, [section.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section?.id]);
+
+  if (!section || !character) return <Navigate to="/" replace />;
 
   const skipTypewriter = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
+    if (timerRef.current) window.window.clearInterval(timerRef.current!);
     timerRef.current = null;
     setTyped(story?.story || "");
     setDoneTyping(true);
@@ -82,6 +99,7 @@ export default function LearnPage({ section, character, targetLanguage = "fr", o
     const text = story?.story || "";
     if (!text) return;
     const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "fr-FR";
     utterance.rate = 0.9;
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
@@ -94,7 +112,10 @@ export default function LearnPage({ section, character, targetLanguage = "fr", o
       {/* Top bar */}
       <div className="sticky top-0 z-50 backdrop-blur-md border-b border-white/[0.06] bg-[rgba(15,23,42,0.82)]">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <button onClick={onBack} className="px-4 py-2 rounded-xl border border-[rgba(48,68,105,0.8)] bg-[rgba(13,26,58,0.55)] hover:bg-[rgba(13,26,58,0.85)] transition text-sm">
+          <button
+            onClick={() => navigate("/roadmap")}
+            className="px-4 py-2 rounded-xl border border-[rgba(48,68,105,0.8)] bg-[rgba(13,26,58,0.55)] hover:bg-[rgba(13,26,58,0.85)] transition text-sm"
+          >
             ← Roadmap
           </button>
           <div className="text-sm font-semibold">{section.title}</div>
@@ -112,17 +133,15 @@ export default function LearnPage({ section, character, targetLanguage = "fr", o
         ) : (
           <>
             {/* Story title */}
-            <div className="pixel-heading text-2xl md:text-3xl">{story?.title || section.title}</div>
+            <h1 className="pixel-heading text-2xl md:text-3xl">{story?.title || section.title}</h1>
 
             {/* Character + Box conversation */}
             <div className="mt-8 flex gap-4 items-start">
-              {/* Character */}
               <div className="shrink-0 hidden md:block">
                 <img src={character.image} alt={character.name} className="w-28 h-28 object-contain rounded-2xl" />
                 <div className="mt-2 text-center text-xs text-slate-300/70 font-semibold">{character.name}</div>
               </div>
 
-              {/* Speech box */}
               <div className="flex-1 relative min-h-[200px]">
                 <div
                   className="relative rounded-2xl border-2 border-[rgba(48,68,105,0.9)] overflow-hidden"
@@ -132,11 +151,9 @@ export default function LearnPage({ section, character, targetLanguage = "fr", o
                     backgroundPosition: "center",
                   }}
                 >
-                  {/* Dark overlay for readability */}
                   <div className="absolute inset-0 bg-[rgba(10,20,44,0.85)]" />
 
                   <div className="relative p-6 md:p-8">
-                    {/* Mobile character */}
                     <div className="md:hidden flex items-center gap-3 mb-4">
                       <img src={character.image} alt={character.name} className="w-12 h-12 object-contain rounded-xl" />
                       <span className="font-semibold">{character.name}</span>
@@ -145,11 +162,10 @@ export default function LearnPage({ section, character, targetLanguage = "fr", o
                     <div
                       className="text-base md:text-lg text-slate-100/95 leading-relaxed whitespace-pre-line"
                       onClick={!doneTyping ? skipTypewriter : undefined}
+                      role={doneTyping ? undefined : "button"}
                     >
                       {typed}
-                      {!doneTyping && (
-                        <span className="tw-caret" />
-                      )}
+                      {!doneTyping && <span className="tw-caret" />}
                     </div>
 
                     {!doneTyping && (
@@ -161,7 +177,7 @@ export default function LearnPage({ section, character, targetLanguage = "fr", o
             </div>
 
             {/* Key Words Learned */}
-            {story?.key_words?.length > 0 && doneTyping && (
+            {story && story.key_words.length > 0 && doneTyping && (
               <div className="mt-8 rounded-2xl border-2 border-[rgba(94,234,212,0.35)] bg-[rgba(94,234,212,0.05)] p-6">
                 <div className="pixel-heading text-base">📚 Key Words Learned</div>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -174,9 +190,7 @@ export default function LearnPage({ section, character, targetLanguage = "fr", o
                       {kw.pronunciation && (
                         <div className="mt-1 text-xs text-slate-400/80">🔊 {kw.pronunciation}</div>
                       )}
-                      {kw.example && (
-                        <div className="mt-2 text-sm text-slate-200/80 italic">“{kw.example}”</div>
-                      )}
+                      {kw.example && <div className="mt-2 text-sm text-slate-200/80 italic">“{kw.example}”</div>}
                     </div>
                   ))}
                 </div>
@@ -212,7 +226,7 @@ export default function LearnPage({ section, character, targetLanguage = "fr", o
                 {speaking ? "🔇 Stop Audio" : "🔊 Listen"}
               </button>
               <button
-                onClick={onGoTest}
+                onClick={() => navigate("/test")}
                 className="px-7 py-3 rounded-xl bg-[rgb(94,234,212)] text-slate-900 font-semibold hover:brightness-110 transition shadow-lg"
               >
                 Ready for Test →

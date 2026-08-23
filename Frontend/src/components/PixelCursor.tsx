@@ -1,9 +1,8 @@
-// src/components/PixelCursor.jsx
 import { useEffect, useRef } from "react";
 
 export default function PixelCursor() {
-  const dotRef = useRef(null);
-  const ringRef = useRef(null);
+  const dotRef = useRef<HTMLDivElement | null>(null);
+  const ringRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
@@ -22,7 +21,7 @@ export default function PixelCursor() {
     let rx = x;
     let ry = y;
 
-    const move = (e) => {
+    const move = (e: MouseEvent) => {
       if (document.body.classList.contains("calm")) return;
       x = e.clientX;
       y = e.clientY;

@@ -1,37 +1,47 @@
 import { useEffect, useRef, useState } from "react";
-import { generateLangFeedback } from "../utils/api";
+import { Navigate, useNavigate } from "react-router-dom";
+import { generateLangFeedback, type SessionFeedback } from "../utils/api";
 import boxImg from "../assets/box.png";
+import { useStore } from "../store/useStore";
 
-export default function FeedbackPage({ section, character, targetLanguage = "fr", results, onContinue }) {
+export default function FeedbackPage() {
+  const navigate = useNavigate();
+  const section = useStore((s) => s.section);
+  const character = useStore((s) => s.character);
+  const results = useStore((s) => s.lastResults);
+  const studentId = useStore((s) => s.studentId);
+
   const [loading, setLoading] = useState(true);
-  const [feedback, setFeedback] = useState(null);
+  const [feedback, setFeedback] = useState<SessionFeedback | null>(null);
   const [typed, setTyped] = useState("");
   const [doneTyping, setDoneTyping] = useState(false);
   const [xpShown, setXpShown] = useState(0);
-  const timerRef = useRef(null);
+  const timerRef = useRef<number | null>(null);
 
-  const pct = Math.round((results.totalCorrect / Math.max(1, results.totalQuestions)) * 100);
+  const totalCorrect = results?.totalCorrect ?? 0;
+  const totalQuestions = results?.totalQuestions ?? 1;
+  const pct = Math.round((totalCorrect / Math.max(1, totalQuestions)) * 100);
 
-  function startTypewriter(text) {
-    if (timerRef.current) clearInterval(timerRef.current);
+  function startTypewriter(text: string) {
+    if (timerRef.current) window.window.clearInterval(timerRef.current!);
     setTyped("");
     setDoneTyping(false);
     let i = 0;
-    timerRef.current = setInterval(() => {
+    timerRef.current = window.setInterval(() => {
       i += 2;
       setTyped(text.slice(0, i));
       if (i >= text.length) {
-        clearInterval(timerRef.current);
+        window.clearInterval(timerRef.current!);
         timerRef.current = null;
         setDoneTyping(true);
       }
     }, 22);
   }
 
-  function animateXp(target) {
+  function animateXp(target: number) {
     let current = 0;
     const step = Math.ceil(target / 30);
-    const iv = setInterval(() => {
+    const iv = window.setInterval(() => {
       current = Math.min(current + step, target);
       setXpShown(current);
       if (current >= target) clearInterval(iv);
@@ -41,28 +51,28 @@ export default function FeedbackPage({ section, character, targetLanguage = "fr"
   useEffect(() => {
     let cancelled = false;
     generateLangFeedback({
-      character: character.name,
-      totalCorrect: results.totalCorrect,
-      totalQuestions: results.totalQuestions,
-      targetLanguage,
-      topic: results.topic || section.topic || section.title,
-      attentionHistory: results.attentionHistory || [],
-      skillResults: results.skillResults || {},
-      studentId: "default",
+      character: character?.name || "Luna",
+      totalCorrect,
+      totalQuestions,
+      targetLanguage: "fr",
+      topic: results?.topic || section?.topic || section?.title || "French basics",
+      attentionHistory: results?.attentionHistory ?? [],
+      skillResults: results?.skillResults ?? {},
+      studentId,
     })
       .then((data) => {
         if (!cancelled) {
           setFeedback(data);
           setLoading(false);
           startTypewriter(data.message || "Great job!");
-          animateXp(data.xp_earned || results.totalCorrect * 25);
+          animateXp(data.xp_earned ?? totalCorrect * 25);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          const xp = results.totalCorrect * 25;
+          const xp = totalCorrect * 25;
           setFeedback({
-            message: `Magnifique! You scored ${results.totalCorrect}/${results.totalQuestions}! Keep going!`,
+            message: `Magnifique! You scored ${totalCorrect}/${totalQuestions}! Keep going!`,
             skill_note: "Every word you learn is a step forward.",
             next_step: "Try 5 minutes of French tomorrow to lock in today's words.",
             xp_earned: xp,
@@ -72,18 +82,22 @@ export default function FeedbackPage({ section, character, targetLanguage = "fr"
           });
           setLoading(false);
           setDoneTyping(true);
-          setTyped(`Magnifique! You scored ${results.totalCorrect}/${results.totalQuestions}! Keep going!`);
+          setTyped(`Magnifique! You scored ${totalCorrect}/${totalQuestions}! Keep going!`);
           setXpShown(xp);
         }
       });
 
     return () => {
       cancelled = true;
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) window.window.clearInterval(timerRef.current!);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const ratingEmoji = feedback?.rating === "excellent" ? "🏆" : feedback?.rating === "good" ? "⭐" : "💪";
+  if (!results || !section || !character) return <Navigate to="/" replace />;
+
+  const ratingEmoji =
+    feedback?.rating === "excellent" ? "🏆" : feedback?.rating === "good" ? "⭐" : "💪";
 
   return (
     <div className="min-h-screen text-slate-100 flex items-center justify-center">
@@ -99,13 +113,15 @@ export default function FeedbackPage({ section, character, targetLanguage = "fr"
           <div className="space-y-6">
             {/* Score card */}
             <div className="rounded-3xl border-2 border-[rgba(48,68,105,0.9)] bg-[rgba(10,20,44,0.75)] shadow-xl p-8 text-center">
-              <div className="text-6xl">{ratingEmoji}</div>
+              <div aria-hidden="true" className="text-6xl">{ratingEmoji}</div>
               <div className="pixel-heading text-2xl mt-4">Quest Complete!</div>
               <div className="mt-2 text-slate-300/80">{section.title}</div>
 
               <div className="mt-6 flex justify-center gap-8">
                 <div>
-                  <div className="text-3xl font-bold text-[rgb(94,234,212)]">{results.totalCorrect}/{results.totalQuestions}</div>
+                  <div className="text-3xl font-bold text-[rgb(94,234,212)]">
+                    {totalCorrect}/{totalQuestions}
+                  </div>
                   <div className="text-xs text-slate-300/70 mt-1">Score</div>
                 </div>
                 <div>
@@ -118,7 +134,6 @@ export default function FeedbackPage({ section, character, targetLanguage = "fr"
                 </div>
               </div>
 
-              {/* Progress bar */}
               <div className="mt-6 h-3 w-full rounded-full bg-[rgba(255,255,255,0.08)] overflow-hidden">
                 <div
                   className="h-3 bg-gradient-to-r from-[rgb(56,189,248)] to-[rgb(94,234,212)] transition-all duration-1000"
@@ -167,12 +182,15 @@ export default function FeedbackPage({ section, character, targetLanguage = "fr"
             )}
 
             {/* Review Skills */}
-            {feedback?.review_skills?.length > 0 && doneTyping && (
+            {feedback?.review_skills && feedback.review_skills.length > 0 && doneTyping && (
               <div className="rounded-2xl border-2 border-[rgba(56,189,248,0.35)] bg-[rgba(56,189,248,0.05)] p-5">
                 <div className="font-semibold text-[rgb(56,189,248)]">🔄 Skills to Review</div>
                 <div className="mt-2 flex gap-2 flex-wrap">
                   {feedback.review_skills.map((skill, i) => (
-                    <span key={i} className="text-xs px-3 py-1 rounded-full border border-[rgba(56,189,248,0.4)] bg-[rgba(56,189,248,0.08)]">
+                    <span
+                      key={i}
+                      className="text-xs px-3 py-1 rounded-full border border-[rgba(56,189,248,0.4)] bg-[rgba(56,189,248,0.08)]"
+                    >
                       {skill.replace(/_/g, " ")}
                     </span>
                   ))}
@@ -190,7 +208,7 @@ export default function FeedbackPage({ section, character, targetLanguage = "fr"
             {/* Continue */}
             <div className="text-center">
               <button
-                onClick={onContinue}
+                onClick={() => navigate("/roadmap")}
                 className="px-8 py-3 rounded-xl bg-[rgb(94,234,212)] text-slate-900 font-semibold hover:brightness-110 transition shadow-lg"
               >
                 Continue to Roadmap →

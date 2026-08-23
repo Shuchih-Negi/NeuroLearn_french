@@ -49,7 +49,8 @@ NeuroLearn/
 │   ├── progress.py            # SM-2 · EWMA · LSTM-blended mastery · analytics
 │   ├── curriculum.py          # Offline French exercise bank (CEFR seed)
 │   ├── data/fr_curriculum.json# Curated A0–A1 French content
-│   ├── db.py                  # SQLite persistence (DKT-ready interactions)
+│   ├── data/supabase_schema.sql # Optional Supabase mirror schema (RLS on)
+│   ├── db.py                  # SQLite persistence + research consent/labels
 │   ├── schemas.py             # Pydantic request models
 │   └── routers/               # session · content · learning · research · metrics
 ├── ml/
@@ -58,7 +59,13 @@ NeuroLearn/
 │   └── nlp_model.py           # Answer validation: exact→accent→edit-distance→semantic
 ├── ml_training/train_lstm.py  # DKT training pipeline
 ├── models/lstm_model.pt       # Trained weights
-├── Frontend/                  # React 19 + Vite + Tailwind (pixel-art UI)
+├── Frontend/                  # React 19 + Vite + **TypeScript** + Tailwind
+│   └── src/
+│       ├── store/useStore.ts  # zustand: profile · session · results
+│       ├── engines/           # eye tracking · attention fusion (+ vitest tests)
+│       ├── pages/             # Home · Roadmap · Learn · Test · Feedback · Dashboard · Research
+│       └── components/        # pixel-art UI kit
+├── docs/dataset_card.md       # HF-style dataset documentation
 ├── tests/test_api_smoke.py    # Offline API smoke suite (pytest)
 └── requirements.txt
 ```
@@ -107,8 +114,8 @@ refills the cache for the next question.
 - [x] **Phase 0** — Security hardening & dead-code purge (math endpoints removed, keys server-side only)
 - [x] **Phase 1** — Backend rebuild: routers, JSON-mode Gemini client w/ model fallback, LRU cache + prefetch, SQLite persistence, latency metrics
 - [x] **Phase 2** — Dataset platform: consent-gated Research Mode, self-report attention labels every 3rd question, optional Supabase mirror, JSONL/CSV export ([dataset card](docs/dataset_card.md))
+- [x] **Phase 4** — Frontend: **TypeScript migration**, react-router + zustand, pixel-art design system 2.0 (CRT overlay, focus rings, reduced-motion), opt-in Focus Sensor, Research dashboard page, vitest engine tests
 - [ ] **Phase 3** — ML showcase: train DKT on collected data, benchmarks vs EWMA/BKT baseline
-- [ ] **Phase 4** — Frontend: TypeScript migration, pixel-art design system 2.0
 - [ ] **Phase 5** — Docker, CI, evaluation notebooks
 
 ## Research Mode & your dataset 📊

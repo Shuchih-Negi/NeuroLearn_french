@@ -1,4 +1,5 @@
-// src/components/PixelFooter.jsx
+import { Link } from "react-router-dom";
+
 export default function PixelFooter() {
   return (
     <footer
@@ -10,23 +11,20 @@ export default function PixelFooter() {
           <div className="max-w-md">
             <div className="font-semibold text-slate-100 text-lg">NeuroLearn</div>
             <p className="mt-2 text-sm text-slate-300/90 leading-relaxed">
-              Story-based MCQs with real-time attention modes and adaptive difficulty.
+              Story-based French quests with real-time attention adaptation and AI-generated exercises.
             </p>
             <p className="mt-2 text-xs text-slate-400/80">
-              Hackathon build • Offline-friendly
+              Open source • Research-backed • Built for learning with focus
             </p>
           </div>
-          <div className="max-w-sm">
-            <div className="font-semibold text-slate-100 text-sm">ADHD-friendly</div>
-            <ul className="mt-2 space-y-1.5 text-sm text-slate-300/80">
-              <li>Calm mode (reduced motion)</li>
-              <li>Short tasks + instant feedback</li>
-              <li>Clear progress + mastery unlocks</li>
-            </ul>
-          </div>
+          <nav className="flex flex-col gap-1.5 text-sm" aria-label="Footer">
+            <Link to="/" className="text-slate-300/80 hover:text-[rgb(94,234,212)] transition">Home</Link>
+            <Link to="/dashboard" className="text-slate-300/80 hover:text-[rgb(94,234,212)] transition">Dashboard</Link>
+            <Link to="/research" className="text-slate-300/80 hover:text-[rgb(94,234,212)] transition">Research Mode</Link>
+          </nav>
         </div>
         <div className="mt-8 pt-6 border-t border-[rgba(51,65,85,0.3)] text-center text-xs text-slate-400/80">
-          © {new Date().getFullYear()} NeuroLearn • Built for learning with focus
+          © {new Date().getFullYear()} NeuroLearn 🇫🇷
         </div>
       </div>
     </footer>

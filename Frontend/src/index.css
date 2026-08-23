@@ -215,3 +215,71 @@ body.calm {
   display: block;
   vertical-align: middle;
 }
+
+/* ===============================
+   DS 2.0 — CRT SCANLINES OVERLAY
+   Subtle arcade texture; static (no flicker) so it is ADHD-safe
+================================ */
+.crt-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.025) 0px,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    radial-gradient(120% 90% at 50% 50%, transparent 60%, rgba(2, 6, 23, 0.35) 100%);
+  mix-blend-mode: overlay;
+}
+
+/* ===============================
+   ACCESSIBILITY — FOCUS RINGS & SELECTION
+================================ */
+:focus-visible {
+  outline: 2px solid rgb(var(--accent2));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: rgba(94, 234, 212, 0.35);
+  color: #f8fafc;
+}
+
+/* Slim themed scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(94, 234, 212, 0.4) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(94, 234, 212, 0.35);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===============================
+   REDUCED MOTION — HARD OFF SWITCH
+================================ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

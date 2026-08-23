@@ -1,33 +1,38 @@
 /**
- * useAttention — React hook that wires together:
- *   1. Browser eye tracking  (engines/eyeTracking.js)
- *   2. Behavioral classifier (engines/attentionModel.js)
- *   3. Fusion engine         (engines/attentionModel.js)
+ * useAttention — React hook wiring together:
+ *   1. Browser eye tracking  (engines/eyeTracking.ts) — opt-in
+ *   2. Behavioral classifier (engines/attentionModel.ts)
+ *   3. Fusion engine         (engines/attentionModel.ts)
  *
- * Usage:
- *   const { eyeActive, eyeMetrics, attentionState, computeAttention, startEyeTracking } = useAttention();
- *
- *   // On answer submit:
- *   const result = computeAttention({ responseTime, correct, retries, recentErrors, idleTime });
- *   // result = { state: "Focused", confidence: 0.85, reasons: [...] }
+ *   const { eyeActive, startEyeTracking, computeAttention } = useAttention();
+ *   const result = computeAttention({ responseTime, correct, ... });
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EyeTracker } from "./eyeTracking.js";
-import { detectAttentionFromBehavior, fuseAttentionStates } from "./attentionModel.js";
+import { EyeTracker, type EyeMetrics } from "./eyeTracking";
+import {
+  detectAttentionFromBehavior,
+  fuseAttentionStates,
+  type AttentionSignal,
+  type EyeSnapshot,
+} from "./attentionModel";
 
 export function useAttention() {
-  const trackerRef = useRef(null);
+  const trackerRef = useRef<EyeTracker | null>(null);
   const [eyeActive, setEyeActive] = useState(false);
-  const [eyeState, setEyeState] = useState(null);       // { state, confidence, metrics }
-  const [eyeMetrics, setEyeMetrics] = useState(null);
-  const [attentionState, setAttentionState] = useState({ state: "Focused", confidence: 0.9, reasons: [] });
+  const [eyeState, setEyeState] = useState<EyeSnapshot | null>(null);
+  const [eyeMetrics, setEyeMetrics] = useState<EyeMetrics | null>(null);
+  const [attentionState, setAttentionState] = useState<AttentionSignal>({
+    state: "Focused",
+    confidence: 0.9,
+    reasons: [],
+  });
 
   /**
-   * Initialize eye tracker & camera. Call once (e.g. on user click to grant permission).
+   * Initialize eye tracker & camera. Call from a user gesture (permission UX).
    * Returns true if successfully started.
    */
-  const startEyeTracking = useCallback(async () => {
+  const startEyeTracking = useCallback(async (): Promise<boolean> => {
     if (trackerRef.current) return true; // already running
 
     const tracker = new EyeTracker(30);
@@ -58,7 +63,19 @@ export function useAttention() {
    * Call after each answer submission.
    */
   const computeAttention = useCallback(
-    ({ responseTime, correct, retries = 0, recentErrors = 0, idleTime = 0 }) => {
+    ({
+      responseTime,
+      correct,
+      retries = 0,
+      recentErrors = 0,
+      idleTime = 0,
+    }: {
+      responseTime: number;
+      correct: boolean;
+      retries?: number;
+      recentErrors?: number;
+      idleTime?: number;
+    }): AttentionSignal => {
       // 1. Behavioral classification
       const behavioral = detectAttentionFromBehavior({
         responseTime,

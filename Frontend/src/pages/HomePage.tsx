@@ -1,16 +1,27 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { chapters, characters } from "../data/chapters";
 import bg from "../assets/bg.gif";
 import PixelFooter from "../components/PixelFooter";
+import { useStore } from "../store/useStore";
 
-export default function HomePage({ selectedCharacter, onSelectCharacter, onSelectChapter, onDashboard }) {
-  const [charPick, setCharPick] = useState(selectedCharacter?.id || null);
+export default function HomePage() {
+  const navigate = useNavigate();
+  const character = useStore((s) => s.character);
+  const setCharacter = useStore((s) => s.setCharacter);
+  const setChapter = useStore((s) => s.setChapter);
 
-  const handleStart = (chapter) => {
+  const [charPick, setCharPick] = useState<string | null>(character?.id || null);
+
+  const handleStart = (chapterId: string) => {
     if (!charPick) return;
     const char = characters.find((c) => c.id === charPick);
-    onSelectCharacter(char);
-    onSelectChapter(chapter);
+    if (!char) return;
+    setCharacter(char);
+    const ch = chapters.find((c) => c.id === chapterId);
+    if (!ch) return;
+    setChapter(ch);
+    navigate("/roadmap");
   };
 
   return (
@@ -18,7 +29,7 @@ export default function HomePage({ selectedCharacter, onSelectCharacter, onSelec
       {/* Hero */}
       <header className="relative min-h-[90vh]">
         <div className="hero-bg-cover relative -z-20">
-          <img src={bg} alt="background" className="block w-full h-auto" />
+          <img src={bg} alt="" aria-hidden="true" className="block w-full h-auto" />
         </div>
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(15,23,42,0.35)_0%,rgba(30,41,59,0.45)_50%,rgba(15,23,42,0.85)_100%)]" />
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(900px_420px_at_50%_20%,rgba(94,234,212,0.12),transparent_55%)]" />
@@ -29,11 +40,12 @@ export default function HomePage({ selectedCharacter, onSelectCharacter, onSelec
               <div className="text-xs tracking-[0.35em] text-slate-200/80">
                 NEUROLEARN • ADAPTIVE LEARNING
               </div>
-              <div className="pixel-heading mt-6 text-4xl md:text-6xl leading-tight">
+              <h1 className="pixel-heading mt-6 text-4xl md:text-6xl leading-tight">
                 Learn French Like a Game
-              </div>
+              </h1>
               <p className="mt-6 text-base md:text-lg text-slate-200/90 leading-relaxed">
-                Story-based quests in French with your favourite characters. Adaptive difficulty powered by AI & eye tracking.
+                Story-based quests in French with your favourite heroes. Adaptive difficulty powered
+                by AI — and an optional Focus Sensor that reads your attention in real time.
               </p>
               <div className="mt-10 flex items-center gap-4 flex-wrap">
                 <button
@@ -43,10 +55,10 @@ export default function HomePage({ selectedCharacter, onSelectCharacter, onSelec
                   Choose Your Hero
                 </button>
                 <button
-                  onClick={onDashboard}
+                  onClick={() => navigate("/dashboard")}
                   className="px-7 py-3 rounded-xl border-2 border-[rgba(48,68,105,0.9)] bg-[rgba(13,26,58,0.55)] hover:bg-[rgba(13,26,58,0.85)] transition"
                 >
-                  Parent Dashboard
+                  Progress Dashboard
                 </button>
               </div>
             </div>
@@ -56,14 +68,15 @@ export default function HomePage({ selectedCharacter, onSelectCharacter, onSelec
 
       <main className="max-w-6xl mx-auto px-6 py-10">
         {/* Character Selection */}
-        <section id="characters" className="mt-2">
-          <div className="pixel-heading text-2xl md:text-3xl">Choose Your Hero</div>
+        <section id="characters" className="mt-2" aria-label="Choose your hero">
+          <h2 className="pixel-heading text-2xl md:text-3xl">Choose Your Hero</h2>
           <p className="mt-2 text-slate-300/80">Pick a character to guide you through the adventure</p>
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-5">
             {characters.map((c) => (
               <button
                 key={c.id}
                 onClick={() => setCharPick(c.id)}
+                aria-pressed={charPick === c.id}
                 className={`relative text-left rounded-3xl border-2 p-6 transition overflow-hidden shadow-lg
                   ${charPick === c.id
                     ? "border-[rgba(94,234,212,0.85)] bg-[rgba(94,234,212,0.08)] ring-2 ring-[rgba(94,234,212,0.3)]"
@@ -88,14 +101,14 @@ export default function HomePage({ selectedCharacter, onSelectCharacter, onSelec
         </section>
 
         {/* Chapters */}
-        <section className="mt-16">
-          <div className="pixel-heading text-2xl md:text-3xl">Chapters</div>
+        <section className="mt-16" aria-label="Chapters">
+          <h2 className="pixel-heading text-2xl md:text-3xl">Chapters</h2>
           <p className="mt-2 text-slate-300/80">Select a chapter to start your quest</p>
           <div className="mt-6 grid grid-cols-1 gap-5">
             {chapters.map((ch) => (
               <button
                 key={ch.id}
-                onClick={() => handleStart(ch)}
+                onClick={() => handleStart(ch.id)}
                 disabled={!charPick}
                 className={`text-left rounded-3xl border-2 p-8 transition shadow-lg
                   ${!charPick
@@ -118,20 +131,42 @@ export default function HomePage({ selectedCharacter, onSelectCharacter, onSelec
                         Le Boss Final
                       </span>
                       <span className="text-xs px-3 py-1 rounded-full border border-[rgba(232,121,249,0.35)] bg-[rgba(232,121,249,0.10)]">
-                        Adaptive AI + Eye Tracking
+                        Adaptive AI + Focus Sensor
                       </span>
                     </div>
                   </div>
-                  <div className={`text-sm px-4 py-2 rounded-full border ${
-                    charPick
-                      ? "border-[rgba(94,234,212,0.55)] bg-[rgba(94,234,212,0.10)]"
-                      : "border-[rgba(51,65,85,0.7)] bg-[rgba(30,41,59,0.4)]"
-                  }`}>
+                  <span
+                    className={`text-sm px-4 py-2 rounded-full border ${
+                      charPick
+                        ? "border-[rgba(94,234,212,0.55)] bg-[rgba(94,234,212,0.10)]"
+                        : "border-[rgba(51,65,85,0.7)] bg-[rgba(30,41,59,0.4)]"
+                    }`}
+                  >
                     {charPick ? "Start →" : "Pick a hero first"}
-                  </div>
+                  </span>
                 </div>
               </button>
             ))}
+          </div>
+        </section>
+
+        {/* Research Mode teaser */}
+        <section className="mt-16 rounded-3xl border-2 border-[rgba(232,121,249,0.35)] bg-[rgba(232,121,249,0.05)] p-8" aria-label="Research mode">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="max-w-xl">
+              <h2 className="pixel-heading text-xl text-[rgb(232,121,249)]">🧠 Research Mode</h2>
+              <p className="mt-3 text-slate-200/90 leading-relaxed">
+                Every quest you play can double as science: anonymous interactions and quick
+                self-report taps build the first open dataset of ADHD-oriented French learning.
+                Consent required, always.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/research")}
+              className="px-6 py-3 rounded-xl border-2 border-[rgba(232,121,249,0.5)] bg-[rgba(232,121,249,0.10)] hover:bg-[rgba(232,121,249,0.18)] transition font-semibold"
+            >
+              Explore the data →
+            </button>
           </div>
         </section>
       </main>

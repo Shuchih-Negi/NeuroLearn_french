@@ -1,6 +1,11 @@
-// src/components/PixelSettingsModal.jsx
+export interface PixelSettings {
+  sound: boolean;
+  calm: boolean;
+  autoCalm: boolean;
+  sprintSeconds: number;
+}
 
-function Toggle({ value, onChange }) {
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       onClick={() => onChange(!value)}
@@ -9,6 +14,8 @@ function Toggle({ value, onChange }) {
           ? "border-[rgba(56,189,248,0.65)] bg-[rgba(56,189,248,0.18)]"
           : "border-[rgba(48,68,105,0.8)] bg-[rgba(13,26,58,0.55)]"
       }`}
+      role="switch"
+      aria-checked={value}
     >
       <span
         className={`absolute top-1/2 -translate-y-1/2 h-7 w-7 rounded-full transition ${
@@ -19,7 +26,15 @@ function Toggle({ value, onChange }) {
   );
 }
 
-function Pill({ active, children, onClick }) {
+function Pill({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
@@ -34,7 +49,7 @@ function Pill({ active, children, onClick }) {
   );
 }
 
-function Row({ label, hint, right }) {
+function Row({ label, hint, right }: { label: string; hint?: string; right: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 py-3">
       <div>
@@ -46,11 +61,21 @@ function Row({ label, hint, right }) {
   );
 }
 
-export default function PixelSettingsModal({ open, onClose, settings, setSettings }) {
+export default function PixelSettingsModal({
+  open,
+  onClose,
+  settings,
+  setSettings,
+}: {
+  open: boolean;
+  onClose: () => void;
+  settings: PixelSettings;
+  setSettings: React.Dispatch<React.SetStateAction<PixelSettings>>;
+}) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50" role="dialog" aria-label="Settings">
       <div className="absolute inset-0 bg-black/45" onClick={onClose} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div className="w-full max-w-lg rounded-2xl border-2 border-[rgba(48,68,105,0.9)] bg-[rgb(10,20,44)] shadow-2xl overflow-hidden">
@@ -65,6 +90,7 @@ export default function PixelSettingsModal({ open, onClose, settings, setSetting
               <button
                 onClick={onClose}
                 className="px-3 py-2 rounded-xl border border-[rgba(48,68,105,0.8)] bg-[rgba(13,26,58,0.55)] hover:bg-[rgba(13,26,58,0.8)]"
+                aria-label="Close settings"
               >
                 ✕
               </button>
@@ -75,12 +101,7 @@ export default function PixelSettingsModal({ open, onClose, settings, setSetting
             <Row
               label="Sound FX"
               hint="Soft chime on submit"
-              right={
-                <Toggle
-                  value={settings.sound}
-                  onChange={(v) => setSettings((s) => ({ ...s, sound: v }))}
-                />
-              }
+              right={<Toggle value={settings.sound} onChange={(v) => setSettings((s) => ({ ...s, sound: v }))} />}
             />
             <div className="border-t border-[rgba(48,68,105,0.6)]" />
 
@@ -90,28 +111,24 @@ export default function PixelSettingsModal({ open, onClose, settings, setSetting
               right={
                 <Toggle
                   value={settings.calm}
-                  onChange={(v) => setSettings((s) => ({ ...s, calm: v }))}
+                  onChange={(v) => {
+                    setSettings((s) => ({ ...s, calm: v }));
+                    document.body.classList.toggle("calm", v);
+                  }}
                 />
               }
             />
             <Row
               label="Auto-Calm"
               hint="Enable calm when drifting/overwhelmed"
-              right={
-                <Toggle
-                  value={settings.autoCalm}
-                  onChange={(v) => setSettings((s) => ({ ...s, autoCalm: v }))}
-                />
-              }
+              right={<Toggle value={settings.autoCalm} onChange={(v) => setSettings((s) => ({ ...s, autoCalm: v }))} />}
             />
 
             <div className="border-t border-[rgba(48,68,105,0.6)]" />
 
             <div className="py-3">
               <div className="font-semibold">Sprint Length</div>
-              <div className="text-sm text-slate-300/80 mt-0.5">
-                Choose focus timer
-              </div>
+              <div className="text-sm text-slate-300/80 mt-0.5">Choose focus timer</div>
               <div className="mt-3 flex gap-2 flex-wrap">
                 {[60, 90, 120].map((sec) => (
                   <Pill

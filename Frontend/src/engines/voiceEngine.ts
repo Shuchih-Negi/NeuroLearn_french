@@ -1,43 +1,49 @@
 /**
- * ElevenLabs TTS voice engine.
- * Maps characters to voice IDs and provides speak/stop functionality.
+ * Voice engine — browser SpeechSynthesis primary (free, local),
+ * optional ElevenLabs premium path. Character-aware pitch/rate.
  */
 
 const ELEVENLABS_API = "https://api.elevenlabs.io/v1/text-to-speech";
 
 // Default voice IDs — replace with actual ElevenLabs voice IDs
-const CHARACTER_VOICES = {
-  Batman: "pNInz6obpgDQGcFmaJgB",   // Adam (deep, authoritative)
-  Joker: "VR6AewLTigWG4xSOukaG",    // Arnold (playful, eccentric)
-  Alfred: "ErXwobaYiN019PkySvjV",    // Antoni (calm, composed)
+const CHARACTER_VOICES: Record<string, string> = {
+  Batman: "pNInz6obpgDQGcFmaJgB", // Adam (deep, authoritative)
+  Joker: "VR6AewLTigWG4xSOukaG", // Arnold (playful, eccentric)
+  Alfred: "ErXwobaYiN019PkySvjV", // Antoni (calm, composed)
 };
 
-let currentAudio = null;
+type CurrentAudio =
+  | { type: "synth" }
+  | { type: "audio"; element: HTMLAudioElement; url?: string }
+  | null;
+
+let currentAudio: CurrentAudio = null;
 
 /**
- * Speak text using ElevenLabs TTS
- * Falls back to browser SpeechSynthesis if ElevenLabs fails
+ * Speak text using browser SpeechSynthesis.
  */
-export async function speak(text, character = "Batman") {
+export async function speak(text: string, character = "Batman"): Promise<void> {
   stop(); // Stop any currently playing audio
 
-  // Try browser SpeechSynthesis as the primary (free) approach
   if ("speechSynthesis" in window) {
-    return new Promise((resolve) => {
+    await new Promise<void>((resolve) => {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.9;
-      utterance.pitch = character === "Joker" ? 1.3 : character === "Alfred" ? 0.85 : 1.0;
+      utterance.pitch =
+        character === "Joker" ? 1.3 : character === "Alfred" ? 0.85 : 1.0;
       utterance.volume = 0.8;
 
-      // Try to pick a fitting voice
       const voices = speechSynthesis.getVoices();
       if (voices.length > 0) {
-        const preferred = voices.find(v => v.lang.startsWith("en") && v.name.includes("Male")) || voices.find(v => v.lang.startsWith("en")) || voices[0];
+        const preferred =
+          voices.find((v) => v.lang.startsWith("en") && v.name.includes("Male")) ||
+          voices.find((v) => v.lang.startsWith("en")) ||
+          voices[0];
         if (preferred) utterance.voice = preferred;
       }
 
-      utterance.onend = resolve;
-      utterance.onerror = resolve;
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
       speechSynthesis.speak(utterance);
       currentAudio = { type: "synth" };
     });
@@ -45,9 +51,13 @@ export async function speak(text, character = "Batman") {
 }
 
 /**
- * Speak using ElevenLabs API (premium)
+ * Speak using ElevenLabs API (premium). Falls back to browser TTS.
  */
-export async function speakWithElevenLabs(text, character = "Batman", apiKey) {
+export async function speakWithElevenLabs(
+  text: string,
+  character = "Batman",
+  apiKey?: string
+): Promise<void> {
   if (!apiKey) return speak(text, character);
 
   stop();
@@ -74,9 +84,15 @@ export async function speakWithElevenLabs(text, character = "Batman", apiKey) {
     const audio = new Audio(url);
     currentAudio = { type: "audio", element: audio, url };
 
-    return new Promise((resolve) => {
-      audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-      audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+    await new Promise<void>((resolve) => {
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        resolve();
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve();
+      };
       audio.play();
     });
   } catch (e) {
@@ -86,7 +102,7 @@ export async function speakWithElevenLabs(text, character = "Batman", apiKey) {
 }
 
 /**
- * Stop any currently playing audio
+ * Stop any currently playing audio.
  */
 export function stop() {
   if (currentAudio?.type === "synth") {
@@ -98,7 +114,7 @@ export function stop() {
   currentAudio = null;
 }
 
-export function isSpeaking() {
+export function isSpeaking(): boolean {
   if (currentAudio?.type === "synth") return speechSynthesis.speaking;
   if (currentAudio?.type === "audio") return !currentAudio.element.paused;
   return false;
