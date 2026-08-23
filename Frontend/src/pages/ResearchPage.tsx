@@ -4,6 +4,7 @@ import {
   getResearchStats,
   getResearchStatus,
   setResearchConsent,
+  researchExportUrl,
   type ResearchStats,
 } from "../utils/api";
 import { useStore } from "../store/useStore";
@@ -14,6 +15,8 @@ const STATE_META: Array<{ key: string; label: string; color: string }> = [
   { key: "Impulsive", label: "😤 Impulsive", color: "bg-[rgb(232,121,249)]" },
   { key: "Overwhelmed", label: "🌋 Overwhelmed", color: "bg-[rgb(251,113,133)]" },
 ];
+
+const COLLECTION_GOAL = 1000;
 
 export default function ResearchPage() {
   const navigate = useNavigate();
@@ -50,6 +53,10 @@ export default function ResearchPage() {
   const maxLabel = stats
     ? Math.max(1, ...Object.values(stats.labels.per_reported_state))
     : 1;
+  const goalPct = stats
+    ? Math.min(100, Math.round((stats.total_interactions / COLLECTION_GOAL) * 100))
+    : 0;
+  const agreement = stats?.labels.detected_agreement_rate ?? null;
 
   return (
     <div className="min-h-screen text-slate-100">
@@ -62,7 +69,7 @@ export default function ResearchPage() {
           >
             ← Home
           </button>
-          <div className="pixel-heading text-base">🧠 Research Mode</div>
+          <div className="pixel-heading text-base">🧠 Data Lab</div>
         </div>
       </div>
 
@@ -73,71 +80,117 @@ export default function ResearchPage() {
             Learn French. Advance the science.
           </h1>
           <p className="mt-4 text-slate-200/90 leading-relaxed">
-            NeuroLearn is building the first open dataset of ADHD-oriented language-learning
-            interactions with self-reported attention labels. When you opt in, every quest you play
-            contributes anonymous rows (answers, timing, error types, attention snapshots) plus
-            one-tap “how did that feel?” ground truth every third question.
+            Every quest played with Research Mode on builds the first open dataset of
+            ADHD-oriented French learning: anonymous interactions plus one-tap
+            “how did that feel?” ground truth. Consent required, revocable anytime.
           </p>
-          <ul className="mt-4 space-y-2 text-sm text-slate-300/85 list-disc list-inside">
-            <li>No accounts, no emails — just a random id stored in your browser</li>
-            <li>Consent is required before anything is logged, and revocable anytime</li>
-            <li>Exports power open models: knowledge tracing + attention classification</li>
-          </ul>
         </section>
 
-        {/* Consent card */}
+        {/* Contribution status */}
         <section className="rounded-3xl border-2 border-[rgba(56,189,248,0.35)] bg-[rgba(56,189,248,0.05)] p-6">
-          <h2 className="pixel-heading text-lg">Your participation</h2>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <h2 className="pixel-heading text-lg">Your participation</h2>
+            {consented !== null && (
+              <span
+                className={`text-xs px-3 py-1.5 rounded-full border font-semibold ${
+                  consented
+                    ? "border-[rgba(52,211,153,0.55)] bg-[rgba(52,211,153,0.10)] text-[rgb(52,211,153)]"
+                    : "border-[rgba(51,65,85,0.7)] bg-[rgba(30,41,59,0.5)]"
+                }`}
+              >
+                {consented ? "● Contributing" : "○ Off"}
+              </span>
+            )}
+          </div>
+
           {consented === null ? (
             <p className="mt-3 text-sm text-slate-300/80">Checking status…</p>
           ) : (
             <>
-              <p className={`mt-3 text-sm font-semibold ${consented ? "text-[rgb(52,211,153)]" : "text-slate-300/80"}`}>
-                {consented ? "✅ You are contributing to Research Mode." : "Research Mode is off for this profile."}
-              </p>
               <div className="mt-4 flex gap-3 flex-wrap">
                 {!consented && (
                   <button
                     onClick={() => toggleConsent(true)}
                     disabled={busy}
-                    className="btn-pixel px-5 py-2.5 rounded-xl disabled:opacity-50"
+                    className="btn-pixel px-6 py-3 rounded-xl disabled:opacity-50"
                   >
                     Join Research Mode
                   </button>
                 )}
                 {consented && (
-                  <button
-                    onClick={() => toggleConsent(false)}
-                    disabled={busy}
-                    className="px-5 py-2.5 rounded-xl border border-[rgba(251,113,133,0.5)] bg-[rgba(251,113,133,0.08)] hover:bg-[rgba(251,113,133,0.15)] transition text-sm"
-                  >
-                    Withdraw consent
-                  </button>
+                  <>
+                    <button
+                      onClick={() => navigate("/roadmap")}
+                      className="px-5 py-2.5 rounded-xl border-2 border-[rgba(94,234,212,0.5)] bg-[rgba(94,234,212,0.08)] hover:bg-[rgba(94,234,212,0.16)] transition text-sm font-semibold"
+                    >
+                      ⚔️ Play & contribute
+                    </button>
+                    <button
+                      onClick={() => toggleConsent(false)}
+                      disabled={busy}
+                      className="px-5 py-2.5 rounded-xl border border-[rgba(251,113,133,0.5)] bg-[rgba(251,113,133,0.08)] hover:bg-[rgba(251,113,133,0.15)] transition text-sm"
+                    >
+                      Withdraw consent
+                    </button>
+                  </>
                 )}
               </div>
+              {consented && (
+                <p className="mt-3 text-xs text-slate-400/80">
+                  A “How did that feel?” chip appears every 3rd question — that tap is the
+                  gold-standard label. Skipping is always OK.
+                </p>
+              )}
             </>
           )}
         </section>
 
-        {/* Live contribution stats */}
+        {/* Collection progress toward goal */}
         {stats && (
-          <section aria-label="Dataset statistics">
-            <h2 className="pixel-heading text-xl">📊 Dataset so far</h2>
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <section aria-label="Collection progress">
+            <div className="flex items-end justify-between gap-4 flex-wrap">
+              <h2 className="pixel-heading text-xl">📊 Dataset so far</h2>
+              <span className="text-sm text-slate-300/80">
+                {fmt(stats.total_interactions)} / {fmt(COLLECTION_GOAL)} interactions to training-ready
+              </span>
+            </div>
+            <div className="mt-3 h-4 w-full rounded-full bg-[rgba(255,255,255,0.08)] overflow-hidden border border-[rgba(48,68,105,0.6)]">
+              <div
+                className="h-4 bg-gradient-to-r from-[rgb(232,121,249)] via-[rgb(56,189,248)] to-[rgb(94,234,212)] transition-all duration-700"
+                style={{ width: `${goalPct}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-slate-400/80">
+              ~{Math.max(0, COLLECTION_GOAL - stats.total_interactions)} to go — roughly{" "}
+              {Math.max(1, Math.ceil((COLLECTION_GOAL - stats.total_interactions) / 10))} more sessions.
+            </p>
+
+            <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard label="Interactions" value={fmt(stats.total_interactions)} />
               <StatCard label="Self-report labels" value={fmt(stats.labels.total)} />
               <StatCard label="Contributors" value={fmt(stats.distinct_students)} />
               <StatCard
                 label="Model–human agreement"
-                value={stats.labels.detected_agreement_rate != null
-                  ? `${Math.round(stats.labels.detected_agreement_rate * 100)}%`
-                  : "—"}
+                value={agreement != null ? `${Math.round(agreement * 100)}%` : "—"}
+                accent={
+                  agreement == null
+                    ? ""
+                    : agreement >= 0.7
+                      ? "text-[rgb(52,211,153)]"
+                      : agreement >= 0.45
+                        ? "text-[rgb(250,204,21)]"
+                        : "text-[rgb(251,113,133)]"
+                }
               />
             </div>
+          </section>
+        )}
 
-            {/* Label distribution */}
-            <div className="mt-6 rounded-2xl border-2 border-[rgba(48,68,105,0.9)] bg-[rgba(15,23,42,0.72)] p-5">
-              <h3 className="font-semibold">Label distribution</h3>
+        {/* Label distribution + skill coverage */}
+        {stats && (
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="rounded-2xl border-2 border-[rgba(48,68,105,0.9)] bg-[rgba(15,23,42,0.72)] p-5">
+              <h3 className="font-semibold">Label balance</h3>
               <div className="mt-4 space-y-3">
                 {STATE_META.map(({ key, label, color }) => {
                   const count = stats.labels.per_reported_state[key] ?? 0;
@@ -159,46 +212,71 @@ export default function ResearchPage() {
               </div>
               {Object.keys(stats.labels.per_reported_state).length === 0 && (
                 <p className="mt-3 text-xs text-slate-400/70">
-                  No labels yet — play a session with Research Mode on to contribute the first ones.
+                  No labels yet — one session gets you started.
                 </p>
               )}
             </div>
 
-            {/* Skill coverage */}
-            <div className="mt-6 rounded-2xl border-2 border-[rgba(48,68,105,0.9)] bg-[rgba(15,23,42,0.72)] p-5">
+            <div className="rounded-2xl border-2 border-[rgba(48,68,105,0.9)] bg-[rgba(15,23,42,0.72)] p-5">
               <h3 className="font-semibold">Skill coverage</h3>
-              <div className="mt-3 flex gap-2 flex-wrap">
-                {Object.entries(stats.per_skill).map(([skill, count]) => (
-                  <span
-                    key={skill}
-                    className="text-xs px-3 py-1.5 rounded-full border border-[rgba(94,234,212,0.35)] bg-[rgba(94,234,212,0.08)]"
-                  >
-                    {skill.replace(/_/g, " ")}: {count}
-                  </span>
+              <div className="mt-3 space-y-2">
+                {Object.entries(stats.per_skill).slice(0, 8).map(([skill, count]) => (
+                  <div key={skill} className="flex items-center justify-between text-xs">
+                    <span className="text-slate-200/85">{skill.replace(/_/g, " ")}</span>
+                    <span className="px-2 py-0.5 rounded-full border border-[rgba(94,234,212,0.35)] bg-[rgba(94,234,212,0.08)]">
+                      {count}
+                    </span>
+                  </div>
                 ))}
                 {Object.keys(stats.per_skill).length === 0 && (
                   <span className="text-xs text-slate-400/70">Nothing collected yet.</span>
                 )}
               </div>
             </div>
-
-            <p className="mt-4 text-xs text-slate-400/70">
-              Researchers: rows are exportable as DKT-ready JSONL/CSV via{" "}
-              <code className="text-[rgb(94,234,212)]">GET /api/research/export</code>. See{" "}
-              <code className="text-[rgb(94,234,212)]">docs/dataset_card.md</code>.
-            </p>
           </section>
         )}
+
+        {/* Export center */}
+        <section className="rounded-2xl border-2 border-[rgba(250,204,21,0.35)] bg-[rgba(250,204,21,0.05)] p-5">
+          <h3 className="font-semibold">⬇️ Export for training</h3>
+          <p className="mt-1 text-xs text-slate-300/80">
+            DKT-ready rows for <code className="text-[rgb(250,204,21)]">ml_training/train_lstm.py</code>{" "}
+            and labels for the attention classifier. Schema in{" "}
+            <code className="text-[rgb(250,204,21)]">docs/dataset_card.md</code>.
+          </p>
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <a href={researchExportUrl("interactions", "jsonl")} className="text-center px-3 py-2.5 rounded-xl border border-[rgba(94,234,212,0.4)] bg-[rgba(94,234,212,0.08)] hover:bg-[rgba(94,234,212,0.16)] transition text-xs font-semibold">
+              interactions.jsonl
+            </a>
+            <a href={researchExportUrl("interactions", "csv")} className="text-center px-3 py-2.5 rounded-xl border border-[rgba(94,234,212,0.4)] bg-[rgba(94,234,212,0.08)] hover:bg-[rgba(94,234,212,0.16)] transition text-xs font-semibold">
+              interactions.csv
+            </a>
+            <a href={researchExportUrl("labels", "jsonl")} className="text-center px-3 py-2.5 rounded-xl border border-[rgba(232,121,249,0.4)] bg-[rgba(232,121,249,0.08)] hover:bg-[rgba(232,121,249,0.16)] transition text-xs font-semibold">
+              labels.jsonl
+            </a>
+            <a href={researchExportUrl("labels", "csv")} className="text-center px-3 py-2.5 rounded-xl border border-[rgba(232,121,249,0.4)] bg-[rgba(232,121,249,0.08)] hover:bg-[rgba(232,121,249,0.16)] transition text-xs font-semibold">
+              labels.csv
+            </a>
+          </div>
+        </section>
       </div>
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({
+  label,
+  value,
+  accent = "",
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+}) {
   return (
     <div className="rounded-2xl border-2 border-[rgba(48,68,105,0.9)] bg-[rgba(15,23,42,0.72)] p-4">
       <div className="text-xs text-slate-300/70">{label}</div>
-      <div className="mt-1 text-2xl font-bold text-slate-100">{value}</div>
+      <div className={`mt-1 text-2xl font-bold ${accent || "text-slate-100"}`}>{value}</div>
     </div>
   );
 }

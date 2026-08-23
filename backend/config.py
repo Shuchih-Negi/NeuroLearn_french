@@ -7,6 +7,15 @@ with zero configuration (fallback-only mode when GEMINI_API_KEY is absent).
 
 import os
 
+# Load the repo-root .env (if present) BEFORE reading any variables, so
+# `uvicorn app:app` picks up GEMINI_API_KEY etc. without manual exports.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+except ImportError:  # python-dotenv optional at runtime
+    pass
+
 # ── Gemini ────────────────────────────────────────────────────────────────
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 

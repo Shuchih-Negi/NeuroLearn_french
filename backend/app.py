@@ -43,6 +43,19 @@ logger = logging.getLogger("neurolearn")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Silence benign google-genai SDK cleanup races (GC of sync-only clients
+    # schedules aclose() on a loop where the async client was never opened).
+    import asyncio
+
+    def _filter_sdk_noise(loop, context):
+        exc = context.get("exception")
+        text = f"{exc or ''} {context.get('message', '')}"
+        if "_async_httpx_client" in text or "BaseApiClient" in text:
+            return
+        loop.default_exception_handler(context)
+
+    asyncio.get_running_loop().set_exception_handler(_filter_sdk_noise)
+
     db.init_db()
     logger.info("DB ready at %s", db.DB_PATH)
     if API_KEY:

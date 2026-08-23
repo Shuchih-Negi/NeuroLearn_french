@@ -207,7 +207,7 @@ class Moderator:
     MAX_RETRIES = 2
 
     def __init__(self, api_key: str, verbose: bool = False):
-        self._client = genai.Client(api_key=api_key)
+        self._client = _get_shared_client(api_key)
         self._verbose = verbose
         self._reasoning_agent  = _make_model(self._client, temperature=0.2)
         self._question_agent   = _make_model(self._client, temperature=0.75)
@@ -671,7 +671,24 @@ Return ONLY valid JSON:
 # Helpers
 # ─────────────────────────────────────────────────────────────
 
+_SHARED_CLIENT: Optional["genai.Client"] = None
+_SHARED_CLIENT_KEY: Optional[str] = None
+
+
+def _get_shared_client(api_key: str) -> "genai.Client":
+    """One process-wide Client (avoids per-instance GC/cleanup churn)."""
+    global _SHARED_CLIENT, _SHARED_CLIENT_KEY
+    if _SHARED_CLIENT is None or _SHARED_CLIENT_KEY != api_key:
+        _SHARED_CLIENT = genai.Client(api_key=api_key)
+        _SHARED_CLIENT_KEY = api_key
+    return _SHARED_CLIENT
+
+
 def _make_model(client: "genai.Client", temperature: float = 0.7):
+    """
+    Adapter over the google-genai SDK exposing a generate_content(prompt)
+    interface so agent call sites stay SDK-agnostic. JSON mode is native.
+    """
     """
     Adapter over the google-genai SDK exposing a generate_content(prompt)
     interface so agent call sites stay SDK-agnostic. JSON mode is native.

@@ -200,7 +200,11 @@ export default function TestPage() {
   };
 
   // Generate quest on mount, then load first question
+  // (didInit guard: React StrictMode dev double-invokes effects)
+  const didInitRef = useRef(false);
   useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
     let cancelled = false;
     setQuestLoading(true);
 
@@ -473,12 +477,20 @@ export default function TestPage() {
           </div>
         )}
 
-        {/* Progress */}
-        <div className="h-2 w-full rounded-full bg-[rgba(255,255,255,0.08)] overflow-hidden">
-          <div
-            className="h-2 bg-gradient-to-r from-[rgb(56,189,248)] to-[rgb(94,234,212)] transition-all"
-            style={{ width: `${(Math.min(qNum, TOTAL) / TOTAL) * 100}%` }}
-          />
+        {/* Progress — chunked segments kids can count */}
+        <div className="flex gap-1.5" role="progressbar" aria-valuenow={Math.min(qNum, TOTAL)} aria-valuemax={TOTAL}>
+          {Array.from({ length: TOTAL }, (_, i) => (
+            <div
+              key={i}
+              className={`h-3 flex-1 rounded-full transition-all duration-300 ${
+                i < qNum
+                  ? "bg-gradient-to-r from-[rgb(56,189,248)] to-[rgb(94,234,212)]"
+                  : i === qNum
+                    ? "bg-[rgba(56,189,248,0.35)] border border-[rgb(56,189,248)]"
+                    : "bg-[rgba(255,255,255,0.08)]"
+              }`}
+            />
+          ))}
         </div>
 
         <div className="mt-8">
@@ -495,7 +507,7 @@ export default function TestPage() {
             <div className="p-6 md:p-8">
               {loading ? (
                 <div className="py-10">
-                  <div className="text-sm text-slate-200/90">Generating quest challenge...</div>
+                  <div className="text-sm text-slate-200/90">Getting your next challenge ready…</div>
                   <div className="mt-3 h-2 w-full rounded-full bg-[rgba(255,255,255,0.08)] overflow-hidden">
                     <div className="h-2 w-1/3 bg-[rgb(56,189,248)] animate-pulse" />
                   </div>
@@ -516,13 +528,13 @@ export default function TestPage() {
                       <button
                         key={idx}
                         onClick={() => !locked && setSelected(idx)}
-                        className={`text-left rounded-2xl border-2 p-4 transition ${optionStyle(idx)}`}
+                        className={`text-left rounded-2xl border-2 p-5 transition ${optionStyle(idx)}`}
                       >
-                        <div className="flex items-start gap-4">
-                          <div className="h-9 w-9 rounded-xl border-2 border-[rgba(48,68,105,0.9)] bg-[rgba(13,26,58,0.55)] flex items-center justify-center text-sm font-bold shrink-0">
+                        <div className="flex items-center gap-4">
+                          <div className="h-11 w-11 rounded-xl border-2 border-[rgba(48,68,105,0.9)] bg-[rgba(13,26,58,0.55)] flex items-center justify-center text-base font-bold shrink-0">
                             {String.fromCharCode(65 + idx)}
                           </div>
-                          <div className="text-base text-slate-100 leading-relaxed">{opt}</div>
+                          <div className="text-lg text-slate-100 leading-relaxed">{opt}</div>
                         </div>
                       </button>
                     ))}
@@ -598,17 +610,21 @@ export default function TestPage() {
                       </div>
 
                       {mcq?.grammar_explanation && (
-                        <div className="rounded-2xl border-2 border-[rgba(232,121,249,0.35)] bg-[rgba(232,121,249,0.05)] p-4">
-                          <div className="text-sm font-semibold text-[rgb(232,121,249)]">📝 Grammar Note</div>
-                          <div className="mt-1 text-slate-200/90">{mcq.grammar_explanation}</div>
-                        </div>
+                        <details className="rounded-2xl border-2 border-[rgba(232,121,249,0.35)] bg-[rgba(232,121,249,0.05)] p-4">
+                          <summary className="text-sm font-semibold text-[rgb(232,121,249)] cursor-pointer">
+                            📝 Grammar Note <span className="text-slate-400/70 font-normal">(tap to peek)</span>
+                          </summary>
+                          <div className="mt-2 text-slate-200/90">{mcq.grammar_explanation}</div>
+                        </details>
                       )}
 
                       {mcq?.visual_breakdown && (
-                        <div className="rounded-2xl border-2 border-[rgba(94,234,212,0.35)] bg-[rgba(94,234,212,0.05)] p-4">
-                          <div className="text-sm font-semibold text-[rgb(94,234,212)]">🔍 Pattern</div>
-                          <div className="mt-1 text-lg text-slate-100">{mcq.visual_breakdown}</div>
-                        </div>
+                        <details className="rounded-2xl border-2 border-[rgba(94,234,212,0.35)] bg-[rgba(94,234,212,0.05)] p-4">
+                          <summary className="text-sm font-semibold text-[rgb(94,234,212)] cursor-pointer">
+                            🔍 Pattern <span className="text-slate-400/70 font-normal">(tap to peek)</span>
+                          </summary>
+                          <div className="mt-2 text-lg text-slate-100">{mcq.visual_breakdown}</div>
+                        </details>
                       )}
                     </div>
                   )}
@@ -619,13 +635,19 @@ export default function TestPage() {
         </div>
 
         {/* Quick stats bar */}
-        <div className="mt-6 flex gap-3 flex-wrap">
+        <div className="mt-6 flex gap-3 flex-wrap items-center">
           <div className="px-4 py-2 rounded-xl border border-[rgba(48,68,105,0.8)] bg-[rgba(13,26,58,0.55)] text-sm">
             Score: {totalCorrect}/{qNum}
           </div>
-          <div className="px-4 py-2 rounded-xl border border-[rgba(48,68,105,0.8)] bg-[rgba(13,26,58,0.55)] text-sm">
-            Streak: {streak} 🔥
-          </div>
+          {streak >= 3 ? (
+            <div className="px-4 py-2 rounded-xl border border-[rgba(251,146,60,0.6)] bg-[rgba(251,146,60,0.12)] text-sm font-bold text-[rgb(251,146,60)] animate-bounce">
+              {streak} streak! 🔥
+            </div>
+          ) : (
+            <div className="px-4 py-2 rounded-xl border border-[rgba(48,68,105,0.8)] bg-[rgba(13,26,58,0.55)] text-sm">
+              Streak: {streak} ✨
+            </div>
+          )}
           <div className="px-4 py-2 rounded-xl border border-[rgba(48,68,105,0.8)] bg-[rgba(13,26,58,0.55)] text-sm">
             XP: {totalCorrect * 20}
           </div>
