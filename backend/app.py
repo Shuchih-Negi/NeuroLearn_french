@@ -1,8 +1,10 @@
 """
 backend/app.py — NeuroLearn French Edition (FastAPI assembly).
 
-Run:  uvicorn backend.app:app --reload --port 8000
-Env:  see .env.example (GEMINI_API_KEY, GEMINI_MODEL, …)
+Run from anywhere:
+    uvicorn backend.app:app --port 8000     # from the repo root
+    uvicorn app:app --port 8000             # from inside backend/
+Env: see .env.example (GEMINI_API_KEY, GEMINI_MODEL, …)
 
 Structure:
     routers/session.py   /api/lang/next_question   (cache → pipeline/fast/fallback)
@@ -14,18 +16,25 @@ Structure:
 
 import logging
 import re
+import sys
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
+# Make imports work regardless of the caller's working directory
+_REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
 
-import backend.db as db
-import backend.gemini_client as gemini_client
-from backend.config import API_KEY, CORS_ORIGINS
-from backend.metrics_store import metrics
-from backend.routers import content, health, learning, research, session
-from backend.routers import metrics as metrics_router
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+
+import backend.db as db  # noqa: E402
+import backend.gemini_client as gemini_client  # noqa: E402
+from backend.config import API_KEY, CORS_ORIGINS  # noqa: E402
+from backend.metrics_store import metrics  # noqa: E402
+from backend.routers import content, health, learning, research, session  # noqa: E402
+from backend.routers import metrics as metrics_router  # noqa: E402
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(name)s %(levelname)s %(message)s")
