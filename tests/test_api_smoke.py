@@ -165,3 +165,79 @@ def test_quest_fallback_steps(client):
     quest = r.json()
     assert len(quest["steps"]) == 5
     assert all(s["location"] for s in quest["steps"])
+
+
+# ── Phase 2: Research Mode (consent + self-report labels) ────────────────────
+
+def test_research_consent_and_label_flow(client):
+    sid = "student_research"
+
+    # Labels rejected without consent
+    r = client.post("/api/research/label", json={
+        "student_id": sid, "section_id": "s1", "question_number": 3,
+        "reported_state": "Focused", "detected_state": "Drifting",
+        "detected_confidence": 0.7,
+    })
+    assert r.status_code == 403
+
+    # Status reflects not-consented
+    r = client.get(f"/api/research/status/{sid}")
+    assert r.status_code == 200
+    assert r.json()["consent_accepted"] is False
+
+    # Give consent
+    r = client.post("/api/research/consent",
+                    json={"student_id": sid, "accepted": True})
+    assert r.status_code == 200
+    assert r.json()["consent"]["accepted"] is True
+
+    # Now labels are accepted
+    for reported, detected in (("Focused", "Focused"),
+                               ("Overwhelmed", "Overwhelmed"),
+                               ("Impulsive", "Drifting")):
+        r = client.post("/api/research/label", json={
+            "student_id": sid, "section_id": "s1",
+            "question_number": 1,
+            "reported_state": reported,
+            "detected_state": detected,
+            "detected_confidence": 0.66,
+        })
+        assert r.status_code == 200
+
+    # Invalid state rejected
+    r = client.post("/api/research/label", json={
+        "student_id": sid, "reported_state": "Sleepy",
+    })
+    assert r.status_code == 422
+
+    # Stats include label distribution + agreement
+    r = client.get("/api/research/stats")
+    stats = r.json()
+    assert stats["labels"]["total"] >= 3
+    assert stats["labels"]["per_reported_state"].get("Focused") >= 1
+    assert stats["labels"]["detected_agreement_rate"] is not None
+    assert stats["consented_students"] >= 1
+
+    # Label export works in both formats
+    r = client.get("/api/research/export?kind=labels&format=jsonl")
+    assert r.status_code == 200
+    lines = [json.loads(l) for l in r.text.strip().splitlines()]
+    assert lines and lines[0]["reported_state"] in {"Focused", "Overwhelmed", "Impulsive"}
+
+    r = client.get("/api/research/export?kind=labels&format=csv")
+    assert r.status_code == 200
+    assert "reported_state" in r.text.splitlines()[0]
+
+    # Withdraw consent → status flips back
+    r = client.post("/api/research/consent",
+                    json={"student_id": sid, "accepted": False})
+    assert r.status_code == 200
+    r = client.get(f"/api/research/status/{sid}")
+    assert r.json()["consent_accepted"] is False
+
+
+def test_export_kind_validation(client):
+    r = client.get("/api/research/export?kind=bogus")
+    assert r.status_code == 422
+    r = client.get("/api/research/export?format=bogus")
+    assert r.status_code == 422

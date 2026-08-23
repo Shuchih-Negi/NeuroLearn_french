@@ -106,10 +106,30 @@ refills the cache for the next question.
 
 - [x] **Phase 0** — Security hardening & dead-code purge (math endpoints removed, keys server-side only)
 - [x] **Phase 1** — Backend rebuild: routers, JSON-mode Gemini client w/ model fallback, LRU cache + prefetch, SQLite persistence, latency metrics
-- [ ] **Phase 2** — Dataset platform: research mode, self-report attention labels, Supabase sync
+- [x] **Phase 2** — Dataset platform: consent-gated Research Mode, self-report attention labels every 3rd question, optional Supabase mirror, JSONL/CSV export ([dataset card](docs/dataset_card.md))
 - [ ] **Phase 3** — ML showcase: train DKT on collected data, benchmarks vs EWMA/BKT baseline
 - [ ] **Phase 4** — Frontend: TypeScript migration, pixel-art design system 2.0
 - [ ] **Phase 5** — Docker, CI, evaluation notebooks
+
+## Research Mode & your dataset 📊
+
+NeuroLearn doubles as its own data-collection platform — the interaction dataset
+nobody publishes for this domain gets built by simply playing the game:
+
+1. **Consent first** — an explicit opt-in card (withdraw anytime); nothing is
+   logged without it.
+2. **Play normally** — every answer is written to SQLite in a DKT-ready schema
+   (`skill_tag`, correctness, latency, hints, error type, attention snapshot).
+3. **Label ground truth** — every 3rd question a one-tap chip asks *"How did
+   that feel?"* → Focused / Drifting / Impulsive / Overwhelmed. These
+   self-reports are the labels that train the attention classifier.
+4. **Export & train** — `GET /api/research/export?kind=interactions|labels`
+   returns JSONL/CSV ready for `ml_training/train_lstm.py`; `/api/research/stats`
+   shows coverage and model–human agreement.
+
+Optional durability: set `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` and run
+`backend/data/supabase_schema.sql` — rows are mirrored asynchronously
+(RLS-enabled, service-role writes only). See [docs/dataset_card.md](docs/dataset_card.md).
 
 ## Security note
 

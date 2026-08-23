@@ -8,6 +8,9 @@ pydantic>=2.5.0
 # Google AI (Gemini agents) — new unified SDK
 google-genai>=1.0.0
 
+# Supabase (optional async dataset mirror; SQLite is the operational store)
+supabase>=2.0.0
+
 # Numerical
 numpy>=1.26.0
 

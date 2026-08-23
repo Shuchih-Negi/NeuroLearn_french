@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { generateLangQuestion, updateLangProgress, generateQuest } from "../utils/api";
+import { generateLangQuestion, updateLangProgress, generateQuest, setResearchConsent, submitAttentionLabel } from "../utils/api";
 import { useAttention } from "../engines/useAttention.js";
 
 function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
@@ -70,6 +70,14 @@ export default function TestPage({ section, character, targetLanguage = "fr", to
   const [skillResults, setSkillResults] = useState({});
   const [sessionFatigue, setSessionFatigue] = useState(0);
   const recentErrorsRef = useRef(0);
+
+  // ── Research Mode (anonymous dataset contribution) ──
+  const RESEARCH_KEY = "nl_research_consent";
+  const [researchChoice, setResearchChoice] = useState(() => localStorage.getItem(RESEARCH_KEY));
+  const [showConsent, setShowConsent] = useState(() => !localStorage.getItem(RESEARCH_KEY));
+  const [pendingLabel, setPendingLabel] = useState(false);
+  const labelDueRef = useRef(null);
+  const proceedRef = useRef(null);
 
   // Timers
   const startRef = useRef(Date.now());
@@ -237,6 +245,16 @@ export default function TestPage({ section, character, targetLanguage = "fr", to
     // Update fatigue (rises per question)
     setSessionFatigue((f) => Math.min(1, f + 0.08));
 
+    // Dataset: schedule a self-report prompt every 3rd question
+    if (researchChoice === "accepted" && newQ % 3 === 0 && newQ < TOTAL) {
+      labelDueRef.current = {
+        section_id: section.id,
+        question_number: newQ,
+        detected_state: state,
+        detected_confidence: result.confidence ?? 0.5,
+      };
+    }
+
     // Update backend progress
     updateLangProgress({
       studentId: "default",
@@ -252,16 +270,58 @@ export default function TestPage({ section, character, targetLanguage = "fr", to
   };
 
   const next = () => {
-    if (qNum >= TOTAL) {
-      // Build skill accuracy map for feedback
-      const skillAccuracyMap = {};
-      Object.entries(skillResults).forEach(([tag, { correct: c, total: t }]) => {
-        skillAccuracyMap[tag] = t > 0 ? c / t : 0;
-      });
-      onFinish({ totalCorrect, totalQuestions: TOTAL, attentionHistory, skillResults: skillAccuracyMap, topic: section.topic });
+    const proceed = () => {
+      if (qNum >= TOTAL) {
+        // Build skill accuracy map for feedback
+        const skillAccuracyMap = {};
+        Object.entries(skillResults).forEach(([tag, { correct: c, total: t }]) => {
+          skillAccuracyMap[tag] = t > 0 ? c / t : 0;
+        });
+        onFinish({ totalCorrect, totalQuestions: TOTAL, attentionHistory, skillResults: skillAccuracyMap, topic: section.topic });
+        return;
+      }
+      loadQuestion(difficulty);
+    };
+    // Pause the loop when a self-report prompt is due
+    if (researchChoice === "accepted" && labelDueRef.current) {
+      proceedRef.current = proceed;
+      setPendingLabel(true);
       return;
     }
-    loadQuestion(difficulty);
+    proceed();
+  };
+
+  const acceptResearch = () => {
+    localStorage.setItem(RESEARCH_KEY, "accepted");
+    setResearchChoice("accepted");
+    setShowConsent(false);
+    setResearchConsent({ studentId: "default", accepted: true }).catch(() => {});
+  };
+
+  const declineResearch = () => {
+    localStorage.setItem(RESEARCH_KEY, "declined");
+    setResearchChoice("declined");
+    setShowConsent(false);
+    setResearchConsent({ studentId: "default", accepted: false }).catch(() => {});
+  };
+
+  const finishLabel = (reportedState) => {
+    const due = labelDueRef.current;
+    if (due && reportedState) {
+      submitAttentionLabel({
+        studentId: "default",
+        sectionId: due.section_id,
+        questionNumber: due.question_number,
+        reportedState,
+        detectedState: due.detected_state,
+        detectedConfidence: due.detected_confidence,
+      }).catch(() => {});
+    }
+    labelDueRef.current = null;
+    setPendingLabel(false);
+    const p = proceedRef.current;
+    proceedRef.current = null;
+    if (p) p();
   };
 
   const optionStyle = (idx) => {
@@ -469,6 +529,60 @@ export default function TestPage({ section, character, targetLanguage = "fr", to
           </div>
         </div>
       </div>
+
+      {/* Research consent modal */}
+      {showConsent && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" />
+          <div className="relative w-full max-w-md rounded-3xl border-2 border-[rgba(56,189,248,0.4)] bg-[rgb(10,20,44)] p-6 shadow-2xl">
+            <div className="pixel-heading text-lg text-[rgb(94,234,212)]">🧠 Help improve NeuroLearn</div>
+            <p className="mt-3 text-sm text-slate-200/85 leading-relaxed">
+              With your OK, we save <span className="font-semibold">anonymous</span> answers,
+              timing and eye-metrics during quests — plus quick “how did that feel?” taps.
+              This trains the attention models. No sign-up, no personal info, opt out anytime.
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button onClick={acceptResearch} className="btn-pixel flex-1 px-4 py-3 rounded-xl">
+                Join Research Mode
+              </button>
+              <button
+                onClick={declineResearch}
+                className="px-4 py-3 rounded-xl border border-[rgba(48,68,105,0.9)] bg-[rgba(13,26,58,0.55)] hover:bg-[rgba(13,26,58,0.85)] transition text-sm"
+              >
+                No thanks
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Self-report attention chip */}
+      {pendingLabel && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[55] w-full max-w-xl px-4">
+          <div className="rounded-2xl border-2 border-[rgba(250,204,21,0.45)] bg-[rgba(10,20,44,0.95)] p-4 shadow-2xl">
+            <div className="text-sm font-semibold text-[rgb(250,204,21)]">
+              How did that feel while answering?
+            </div>
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {[["Focused", "🎯"], ["Drifting", "🌊"], ["Impulsive", "😤"], ["Overwhelmed", "🌋"]].map(([s, e]) => (
+                <button
+                  key={s}
+                  onClick={() => finishLabel(s)}
+                  className="rounded-xl border border-[rgba(48,68,105,0.9)] bg-[rgba(13,26,58,0.6)] hover:bg-[rgba(56,189,248,0.15)] transition px-2 py-2 text-xs"
+                >
+                  <span className="mr-1">{e}</span>{s}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => finishLabel(null)}
+              className="mt-2 text-xs text-slate-400 hover:text-slate-200"
+            >
+              Skip
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

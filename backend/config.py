@@ -21,6 +21,12 @@ CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(","
 DB_PATH = os.environ.get("NEUROLEARN_DB_PATH",
                          os.path.join("data", "neurolearn.db"))
 
+# Supabase mirror (optional): SQLite stays the operational store; writes are
+# best-effort mirrored to Supabase for durability when credentials are set.
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+SUPABASE_SYNC_ENABLED = os.environ.get("SUPABASE_SYNC", "1") == "1"
+
 CURRICULUM_PATH = os.environ.get(
     "NEUROLEARN_CURRICULUM",
     os.path.join(os.path.dirname(__file__), "data", "fr_curriculum.json"),

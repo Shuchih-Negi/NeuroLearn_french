@@ -177,3 +177,36 @@ export async function getLangDashboard(studentId = "default") {
 export async function getLangMastery(studentId = "default") {
   return get(`/lang/mastery/${studentId}`);
 }
+
+// ═══════════════════════════════════════════════════════════
+// Research Mode API (/api/research/*) — dataset contribution
+// ═══════════════════════════════════════════════════════════
+
+export async function setResearchConsent({ studentId = "default", accepted }) {
+  return post("/research/consent", {
+    student_id: studentId,
+    accepted,
+  });
+}
+
+export async function getResearchStatus(studentId = "default") {
+  return get(`/research/status/${studentId}`);
+}
+
+export async function submitAttentionLabel({
+  studentId = "default",
+  sectionId = "default_section",
+  questionNumber = 1,
+  reportedState,
+  detectedState = "",
+  detectedConfidence = 0.0,
+}) {
+  return post("/research/label", {
+    student_id: studentId,
+    section_id: sectionId,
+    question_number: questionNumber,
+    reported_state: reportedState,
+    detected_state: detectedState,
+    detected_confidence: detectedConfidence,
+  });
+}
