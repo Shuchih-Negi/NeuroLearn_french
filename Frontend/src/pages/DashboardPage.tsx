@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { getLangDashboard } from "../utils/api";
 import { chapters } from "../data/chapters";
 import { useStore } from "../store/useStore";
+import { effectiveStreak, levelFromXP, usePlayer } from "../store/playerStore";
+import { ACHIEVEMENTS } from "../utils/achievements";
 
- 
 type DashboardData = any;
 
 const STATE_COLORS: Record<string, string> = {
@@ -17,6 +18,10 @@ const STATE_COLORS: Record<string, string> = {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const studentId = useStore((s) => s.studentId);
+  const totalXP = usePlayer((s) => s.totalXP);
+  const streakDays = usePlayer((s) => s.streakDays);
+  const lastPlayDate = usePlayer((s) => s.lastPlayDate);
+  const unlockedMap = usePlayer((s) => s.unlocked);
   const [data, setData] = useState<DashboardData>(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,6 +31,9 @@ export default function DashboardPage() {
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [studentId]);
+
+  const streak = effectiveStreak({ streakDays, lastPlayDate });
+  const unlockedCount = Object.keys(unlockedMap).length;
 
   const sectionTitleMap: Record<string, string> = {};
   chapters.forEach((ch) =>
@@ -67,6 +75,51 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
+            {/* Player snapshot */}
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+              <span className="px-3 py-1.5 rounded-full border border-[rgba(56,189,248,0.5)] bg-[rgba(56,189,248,0.12)] text-sm font-bold">
+                Lv {levelFromXP(totalXP)}
+              </span>
+              <span className="text-xs text-slate-300/80">{totalXP} XP</span>
+              <span className={`text-sm font-bold ${streak > 0 ? "text-[rgb(251,146,60)]" : "text-slate-400/70"}`}>
+                🔥 {streak}-day streak
+              </span>
+            </div>
+
+            {/* Achievements grid */}
+            <div className="rounded-2xl border-2 border-[rgba(250,204,21,0.35)] bg-[rgba(250,204,21,0.05)] p-5 mb-8">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h2 className="pixel-heading text-base">🏅 Achievements</h2>
+                <span className="text-xs text-slate-300/80 font-semibold">
+                  {unlockedCount}/{ACHIEVEMENTS.length} unlocked
+                </span>
+              </div>
+              <div className="mt-4 grid grid-cols-3 md:grid-cols-5 gap-3">
+                {ACHIEVEMENTS.map((a) => {
+                  const got = Boolean(unlockedMap[a.id]);
+                  return (
+                    <div
+                      key={a.id}
+                      title={a.desc}
+                      className={`rounded-xl border-2 p-3 text-center transition ${
+                        got
+                          ? "border-[rgba(250,204,21,0.65)] bg-[rgba(250,204,21,0.10)]"
+                          : "border-[rgba(51,65,85,0.5)] bg-[rgba(15,23,42,0.5)] opacity-55"
+                      }`}
+                    >
+                      <div className={`text-2xl ${got ? "" : "grayscale"}`} aria-hidden="true">
+                        {got ? a.icon : "🔒"}
+                      </div>
+                      <div className={`mt-1 text-[11px] font-bold leading-tight ${got ? "text-slate-100" : "text-slate-400"}`}>
+                        {a.title}
+                      </div>
+                      <div className="mt-0.5 text-[10px] text-slate-400/80 leading-tight">{a.desc}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Overview cards */}
             <h1 className="pixel-heading text-2xl">Student Overview</h1>
             <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-4">

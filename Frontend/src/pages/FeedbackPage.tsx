@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { generateLangFeedback, type SessionFeedback } from "../utils/api";
 import boxImg from "../assets/box.png";
+import Confetti from "../components/Confetti";
 import { useStore } from "../store/useStore";
 
 export default function FeedbackPage() {
@@ -101,6 +102,7 @@ export default function FeedbackPage() {
 
   return (
     <div className="min-h-screen text-slate-100 flex items-center justify-center">
+      {pct >= 70 && <Confetti show />}
       <div className="max-w-2xl w-full mx-auto px-6 py-10">
         {loading ? (
           <div className="flex flex-col items-center py-20">

@@ -6,12 +6,15 @@ import {
   generateQuest,
   setResearchConsent,
   submitAttentionLabel,
+  getResearchStatus,
   type Quest,
   type QuestionPacket,
 } from "../utils/api";
 import { useAttention } from "../engines/useAttention";
 import PixelSettingsModal, { type PixelSettings } from "../components/PixelSettingsModal";
 import { useStore } from "../store/useStore";
+import { DAILY_GOAL, answersToday, levelFromXP, usePlayer } from "../store/playerStore";
+import { evaluateAchievements, type EvaluationContext } from "../utils/achievements";
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
@@ -119,6 +122,12 @@ export default function TestPage() {
   const [skillResults, setSkillResults] = useState<Record<string, { correct: number; total: number }>>({});
   const [sessionFatigue, setSessionFatigue] = useState(0);
   const recentErrorsRef = useRef(0);
+  const sessionMaxStreakRef = useRef(0);
+
+  // Player profile (XP / streak / achievements)
+  const recordAnswer = usePlayer((s) => s.recordAnswer);
+  const completeSession = usePlayer((s) => s.completeSession);
+  const unlockAchievement = usePlayer((s) => s.unlock);
 
   // Timers
   const startRef = useRef(Date.now());
@@ -270,11 +279,16 @@ export default function TestPage() {
     setQNum(newQ);
     if (correct) {
       setTotalCorrect((c) => c + 1);
-      setStreak((s) => s + 1);
+      const newStreak = streak + 1;
+      sessionMaxStreakRef.current = Math.max(sessionMaxStreakRef.current, newStreak);
+      setStreak(newStreak);
     } else {
       setStreak(0);
       setRetries((r) => r + 1);
     }
+
+    // Player profile: count toward the daily goal
+    recordAnswer();
 
     // Adaptive difficulty
     if (state === "Focused" && correct) setDifficulty((d) => clamp(d + 1, 1, 5));
@@ -344,6 +358,42 @@ export default function TestPage() {
         };
         recordSectionResult(section?.id || "default_section", TOTAL, totalCorrect);
         setLastResults(results);
+
+        // ── Player profile: XP + achievements ──
+        const pct = totalCorrect / Math.max(1, TOTAL);
+        const xpEarned = totalCorrect * 25 + (pct >= 0.8 ? 15 : 0);
+        completeSession({
+          correct: totalCorrect,
+          total: TOTAL,
+          xpEarned,
+          maxStreak: sessionMaxStreakRef.current,
+          attentionHistory,
+        });
+
+        const evaluate = (researchLabels: number) => {
+          const p = usePlayer.getState();
+          const ctx: EvaluationContext = {
+            totalXP: p.totalXP,
+            level: levelFromXP(p.totalXP),
+            streakDays: p.streakDays,
+            answersToday: answersToday(p),
+            dailyGoal: DAILY_GOAL,
+            sessionCorrect: totalCorrect,
+            sessionTotal: TOTAL,
+            sessionMaxStreak: sessionMaxStreakRef.current,
+            attentionHistory,
+            researchLabels,
+            bossWins: p.bossWins,
+            finishedBefore8AM: new Date().getHours() < 8,
+          };
+          evaluateAchievements(ctx).forEach((id) => unlockAchievement(id));
+        };
+        evaluate(0); // sync pass
+        // Data-tier badges need the server's label count
+        getResearchStatus(studentId)
+          .then((st) => evaluate(st.labels_logged))
+          .catch(() => {});
+
         navigate("/feedback");
         return;
       }

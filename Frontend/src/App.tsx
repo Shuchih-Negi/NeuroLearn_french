@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
+import AchievementToast from "./components/AchievementToast";
 import PixelCursor from "./components/PixelCursor";
 import HomePage from "./pages/HomePage";
 import RoadmapPage from "./pages/RoadmapPage";
@@ -24,6 +25,7 @@ export default function App() {
       <BrowserRouter>
         <ScrollToTop />
         <PixelCursor />
+        <AchievementToast />
         <div className="crt-overlay" aria-hidden="true" />
         <Routes>
           <Route path="/" element={<HomePage />} />

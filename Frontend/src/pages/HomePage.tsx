@@ -3,13 +3,21 @@ import { useNavigate } from "react-router-dom";
 import { chapters, characters } from "../data/chapters";
 import bg from "../assets/bg.gif";
 import PixelFooter from "../components/PixelFooter";
+import DailyGoalRing from "../components/DailyGoalRing";
 import { useStore } from "../store/useStore";
+import { effectiveStreak, levelFromXP, usePlayer } from "../store/playerStore";
 
 export default function HomePage() {
   const navigate = useNavigate();
   const character = useStore((s) => s.character);
   const setCharacter = useStore((s) => s.setCharacter);
   const setChapter = useStore((s) => s.setChapter);
+
+  // Player profile
+  const totalXP = usePlayer((s) => s.totalXP);
+  const streakDays = usePlayer((s) => s.streakDays);
+  const lastPlayDate = usePlayer((s) => s.lastPlayDate);
+  const streak = effectiveStreak({ streakDays, lastPlayDate });
 
   const [charPick, setCharPick] = useState<string | null>(character?.id || null);
 
@@ -65,6 +73,25 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {/* Player strip — level · streak · daily goal */}
+      <div className="relative z-20 max-w-6xl mx-auto px-6 -mt-10 mb-4">
+        <div className="rounded-2xl border-2 border-[rgba(94,234,212,0.4)] bg-[rgba(10,20,44,0.92)] shadow-xl p-4 flex flex-wrap items-center gap-x-6 gap-y-3 justify-between">
+          <div className="flex items-center gap-3">
+            <span className="px-3 py-1.5 rounded-full border border-[rgba(56,189,248,0.5)] bg-[rgba(56,189,248,0.12)] text-sm font-bold">
+              Lv {levelFromXP(totalXP)}
+            </span>
+            <span className="text-xs text-slate-300/80">{totalXP} XP</span>
+          </div>
+          <div
+            className={`text-sm font-bold ${streak > 0 ? "text-[rgb(251,146,60)]" : "text-slate-400/70"}`}
+            title="Days played in a row"
+          >
+            🔥 {streak}-day streak
+          </div>
+          <DailyGoalRing />
+        </div>
+      </div>
 
       <main className="max-w-6xl mx-auto px-6 py-10">
         {/* Character Selection */}
